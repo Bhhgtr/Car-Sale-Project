@@ -6,6 +6,8 @@ import About from './pages/About';
 import Profile from './pages/Profile';
 import Header from './components/Header';
 
+export default function App() {
+  return (
 <BrowserRouter>
       <Routes>
         <Route path="/" element={<Home />} />
@@ -15,3 +17,6 @@ import Header from './components/Header';
         <Route path="/profile" element={<Profile />} />
       </Routes>
     </BrowserRouter>
+
+     )
+}
