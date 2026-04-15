@@ -1,7 +1,5 @@
 import {useSelector} from 'react-redux'
 import {useRef, useState, useEffect} from 'react';
-import {getDownloadURL,getStorage,ref,uploadBytesResumable} from 'firebase/storage';
-import { app } from '../firebase';
 import profile from '../assets/profile.jpg';
 import {updateUserStart,updateUserSuccess,updateUserFailure,deleteUserStart,deleteUserSuccess,deleteUserFailure,signOutUserStart, signOutUserSuccess, signOutUserFailure} from '../redux/user/userSlice';
 import { useDispatch } from 'react-redux';
@@ -25,27 +23,42 @@ export default function Profile() {
     }
   }, [file]);
 
-  const handleFileUpload = (file) => {
-    const storage = getStorage(app); 
-    const fileName = new Date().getTime() + file.name;
-    const storageRef = ref(storage, fileName);
-    const uploadTask = uploadBytesResumable(storageRef, file);
+const handleFileUpload = async (file) => {
+  try {
+    setFileUploadError(false);
+    setFilePerc(0);
 
-    uploadTask.on('state_changed',
-      (snapshot) => {
-        const progress =(snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-        setFilePerc(Math.round(progress));
-      },
-      (error) => {
-        setFileUploadError(true);
-      },
-      () => {
-        getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) =>
-          setFormData({ ...formData, avatar: downloadURL })
-        );
-      }
+    const res = await fetch(
+      `/api/user/s3-url?fileName=${encodeURIComponent(file.name)}&fileType=${encodeURIComponent(file.type)}`,
+      { credentials: 'include' }
     );
-  };
+
+    if (!res.ok) {
+      const errData = await res.json();
+      console.error('Presigned URL error:', errData);
+      throw new Error(errData.message || 'Failed to get upload URL');
+    }
+
+    const { url, key } = await res.json();
+
+    if (!url || !key) throw new Error('Invalid presigned URL response');
+
+    const upload = await fetch(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': file.type },
+      body: file,
+    });
+
+    if (!upload.ok) throw new Error('Upload to S3 failed');
+
+    const publicUrl = `https://${import.meta.env.VITE_AWS_BUCKET_NAME}.s3.${import.meta.env.VITE_AWS_REGION}.amazonaws.com/${key}`;
+    setFormData((prev) => ({ ...prev, avatar: publicUrl }));
+    setFilePerc(100);
+  } catch (error) {
+    console.error('Upload error:', error.message);
+    setFileUploadError(true);
+  }
+};
 
    const handleChange = (e) => {
     setFormData({ ...formData, [e.target.id]: e.target.value });
@@ -149,7 +162,7 @@ export default function Profile() {
       <h1 className='text-3xl font-semibold text-center my-7'>Profile</h1>
       <form onSubmit={handleSubmit} className='flex flex-col gap-4'>
         <input onChange={(e) => setFile(e.target.files[0])} type='file' ref={fileRef} hidden accept='image/*'/>
-        <img onClick={() => fileRef.current.click()} src={ profile || currentUser.avatar} alt="profile" className='rounded-full h-24 w-24 object-cover cursor-pointer self-center mt-2' />
+        <img onClick={() => fileRef.current.click()} src={ currentUser.avatar } alt="profile" className='rounded-full h-24 w-24 object-cover cursor-pointer self-center mt-2' />
         <p className='text-sm self-center'>
           {fileUploadError ? (
             <span className='text-red-700'>
