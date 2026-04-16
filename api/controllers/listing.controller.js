@@ -62,3 +62,69 @@ export const getListing = async (req, res, next) => {
   }
   
   }
+
+  export const getListings = async (req, res, next) => {
+  try {
+    const limit = parseInt(req.query.limit) || 9;
+    const startIndex = parseInt(req.query.startIndex) || 0;
+
+    // --- Offer filter ---
+    let offer = req.query.offer;
+    if (offer === undefined || offer === 'false') {
+      offer = { $in: [false, true] };
+    }
+
+    // --- Type filter (sale / rent / all) ---
+    let type = req.query.type;
+    if (type === undefined || type === 'all') {
+      type = { $in: ['sale', 'rent'] };
+    }
+
+    // --- Fuel type filter (petrol / diesel / all) ---
+    let fuelType = req.query.fuelType;
+    if (fuelType === undefined || fuelType === 'all') {
+      fuelType = { $in: ['petrol', 'diesel'] };
+    }
+
+    // --- Year of manufacture range filter ---
+    let yomFilter = {};
+    const yomMin = parseInt(req.query.yomMin);
+    const yomMax = parseInt(req.query.yomMax);
+    if (!isNaN(yomMin)) yomFilter.$gte = yomMin;
+    if (!isNaN(yomMax)) yomFilter.$lte = yomMax;
+
+    // --- Engine search (partial match) ---
+    const engineTerm = req.query.engine || '';
+
+    // --- Name / general search term ---
+    const searchTerm = req.query.searchTerm || '';
+
+    // --- Sorting ---
+    const sort = req.query.sort || 'createdAt';
+    const order = req.query.order || 'desc';
+
+    const query = {
+      name: { $regex: searchTerm, $options: 'i' },
+      offer,
+      type,
+      fuelType,
+    };
+
+    if (engineTerm) {
+      query.engine = { $regex: engineTerm, $options: 'i' };
+    }
+
+    if (Object.keys(yomFilter).length > 0) {
+      query.yom = yomFilter;
+    }
+
+    const listings = await Listing.find(query)
+      .sort({ [sort]: order })
+      .limit(limit)
+      .skip(startIndex);
+
+    return res.status(200).json(listings);
+  } catch (error) {
+    next(error);
+  }
+};
