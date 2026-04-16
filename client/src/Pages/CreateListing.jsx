@@ -1,12 +1,5 @@
 import React from "react";
 import { useState } from "react";
-import {
-  getDownloadURL,
-  getStorage,
-  ref,
-  uploadBytesResumable,
-} from "firebase/storage";
-import { app } from "../firebase";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 
@@ -63,29 +56,27 @@ export default function CreateListing() {
   };
 
   const storeImage = async (file) => {
-    return new Promise((resolve, reject) => {
-      const storage = getStorage(app);
-      const fileName = new Date().getTime() + file.name;
-      const storageRef = ref(storage, fileName);
-      const uploadTask = uploadBytesResumable(storageRef, file);
-      uploadTask.on(
-        "state_changed",
-        (snapshot) => {
-          const progress =
-            (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          console.log(`Upload is ${progress}% done`);
-        },
-        (error) => {
-          reject(error);
-        },
-        () => {
-          getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
-            resolve(downloadURL);
-          });
-        },
-      );
+
+    const res = await fetch(
+      `/api/user/s3-url?fileName=${encodeURIComponent(file.name)}&fileType=${encodeURIComponent(file.type)}`,
+      { credentials: "include" }
+    );
+
+    if (!res.ok) throw new Error("Failed to get upload URL");
+
+    const { url, key } = await res.json();
+
+    const upload = await fetch(url, {
+      method: "PUT",
+      headers: { "Content-Type": file.type },
+      body: file,
     });
+
+    if (!upload.ok) throw new Error("Upload to S3 failed");
+
+    return `https://${import.meta.env.VITE_AWS_BUCKET_NAME}.s3.${import.meta.env.VITE_AWS_REGION}.amazonaws.com/${key}`;
   };
+
 
   const handleRemoveImage = (index) => {
     setFormData({
@@ -268,7 +259,7 @@ export default function CreateListing() {
                 type="number"
                 id="regularPrice"
                 min="1"
-                max="10000000"
+                max="1000"
                 required
                 className="p-3 border border-gray-300 rounded-lg"
                 onChange={handleChange}
@@ -286,7 +277,7 @@ export default function CreateListing() {
                   type="number"
                   id="discountPrice"
                   min="0"
-                  max="1000"
+                  max="100000"
                   required
                   className="p-3 border border-gray-300 rounded-lg"
                   onChange={handleChange}
