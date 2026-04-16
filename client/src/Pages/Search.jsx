@@ -1,58 +1,55 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import ListingItem from '../components/ListingItem';
+import React from 'react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 export default function Search() {
   const navigate = useNavigate();
-  const location = useLocation();
-
-  const [sidebarData, setSidebarData] = useState({
+  const [sidebardata, setSidebardata] = useState({
     searchTerm: '',
     type: 'all',
-    offer: false,
     fuelType: 'all',
-    engine: '',
+    offer: false,
     yomMin: '',
     yomMax: '',
+    engine: '',
     sort: 'createdAt',
     order: 'desc',
   });
 
-  const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [showMore, setShowMore] = useState(false);
+  const [listings, setListings] = useState([]);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
     const searchTermFromUrl = urlParams.get('searchTerm');
     const typeFromUrl = urlParams.get('type');
-    const offerFromUrl = urlParams.get('offer');
     const fuelTypeFromUrl = urlParams.get('fuelType');
-    const engineFromUrl = urlParams.get('engine');
+    const offerFromUrl = urlParams.get('offer');
     const yomMinFromUrl = urlParams.get('yomMin');
     const yomMaxFromUrl = urlParams.get('yomMax');
+    const engineFromUrl = urlParams.get('engine');
     const sortFromUrl = urlParams.get('sort');
     const orderFromUrl = urlParams.get('order');
 
     if (
       searchTermFromUrl ||
       typeFromUrl ||
-      offerFromUrl ||
       fuelTypeFromUrl ||
-      engineFromUrl ||
+      offerFromUrl ||
       yomMinFromUrl ||
       yomMaxFromUrl ||
+      engineFromUrl ||
       sortFromUrl ||
       orderFromUrl
     ) {
-      setSidebarData({
+      setSidebardata({
         searchTerm: searchTermFromUrl || '',
         type: typeFromUrl || 'all',
-        offer: offerFromUrl === 'true' ? true : false,
         fuelType: fuelTypeFromUrl || 'all',
-        engine: engineFromUrl || '',
+        offer: offerFromUrl === 'true' ? true : false,
         yomMin: yomMinFromUrl || '',
         yomMax: yomMaxFromUrl || '',
+        engine: engineFromUrl || '',
         sort: sortFromUrl || 'createdAt',
         order: orderFromUrl || 'desc',
       });
@@ -60,15 +57,9 @@ export default function Search() {
 
     const fetchListings = async () => {
       setLoading(true);
-      setShowMore(false);
       const searchQuery = urlParams.toString();
       const res = await fetch(`/api/listing/get?${searchQuery}`);
       const data = await res.json();
-      if (data.length > 8) {
-        setShowMore(true);
-      } else {
-        setShowMore(false);
-      }
       setListings(data);
       setLoading(false);
     };
@@ -77,76 +68,63 @@ export default function Search() {
   }, [location.search]);
 
   const handleChange = (e) => {
-    // Type checkboxes
-    if (['all', 'rent', 'sale'].includes(e.target.id)) {
-      setSidebarData({ ...sidebarData, type: e.target.id });
+    // Listing type checkboxes
+    if (e.target.id === 'all' || e.target.id === 'rent' || e.target.id === 'sale') {
+      setSidebardata({ ...sidebardata, type: e.target.id });
     }
 
-    // Search term, engine, yomMin, yomMax
-    if (
-      e.target.type === 'text' ||
-      e.target.type === 'number'
-    ) {
-      setSidebarData({ ...sidebarData, [e.target.id]: e.target.value });
+    // Search term & engine text inputs
+    if (e.target.id === 'searchTerm' || e.target.id === 'engine') {
+      setSidebardata({ ...sidebardata, [e.target.id]: e.target.value });
     }
 
     // Offer checkbox
     if (e.target.id === 'offer') {
-      setSidebarData({
-        ...sidebarData,
-        offer: e.target.checked || e.target.checked === true ? true : false,
+      setSidebardata({ ...sidebardata, offer: e.target.checked });
+    }
+
+    // Fuel type checkboxes
+    if (e.target.id === 'fuelAll' || e.target.id === 'petrol' || e.target.id === 'diesel') {
+      setSidebardata({
+        ...sidebardata,
+        fuelType: e.target.id === 'fuelAll' ? 'all' : e.target.id,
       });
     }
 
-    // Fuel type & sort dropdowns
-    if (e.target.id === 'fuelType' || e.target.id === 'sort_order') {
-      if (e.target.id === 'sort_order') {
-        const sort = e.target.value.split('_')[0] || 'createdAt';
-        const order = e.target.value.split('_')[1] || 'desc';
-        setSidebarData({ ...sidebarData, sort, order });
-      } else {
-        setSidebarData({ ...sidebarData, fuelType: e.target.value });
-      }
+    // YOM range inputs
+    if (e.target.id === 'yomMin' || e.target.id === 'yomMax') {
+      setSidebardata({ ...sidebardata, [e.target.id]: e.target.value });
+    }
+
+    // Sort & order
+    if (e.target.id === 'sort_order') {
+      const sort = e.target.value.split('_')[0] || 'createdAt';
+      const order = e.target.value.split('_')[1] || 'desc';
+      setSidebardata({ ...sidebardata, sort, order });
     }
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
     const urlParams = new URLSearchParams();
-    urlParams.set('searchTerm', sidebarData.searchTerm);
-    urlParams.set('type', sidebarData.type);
-    urlParams.set('offer', sidebarData.offer);
-    urlParams.set('fuelType', sidebarData.fuelType);
-    if (sidebarData.engine) urlParams.set('engine', sidebarData.engine);
-    if (sidebarData.yomMin) urlParams.set('yomMin', sidebarData.yomMin);
-    if (sidebarData.yomMax) urlParams.set('yomMax', sidebarData.yomMax);
-    urlParams.set('sort', sidebarData.sort);
-    urlParams.set('order', sidebarData.order);
-    const searchQuery = urlParams.toString();
-    navigate(`/search?${searchQuery}`);
-  };
-
-  const onShowMoreClick = async () => {
-    const numberOfListings = listings.length;
-    const startIndex = numberOfListings;
-    const urlParams = new URLSearchParams(location.search);
-    urlParams.set('startIndex', startIndex);
-    const searchQuery = urlParams.toString();
-    const res = await fetch(`/api/listing/get?${searchQuery}`);
-    const data = await res.json();
-    if (data.length < 9) {
-      setShowMore(false);
-    }
-    setListings([...listings, ...data]);
+    urlParams.set('searchTerm', sidebardata.searchTerm);
+    urlParams.set('type', sidebardata.type);
+    urlParams.set('fuelType', sidebardata.fuelType);
+    urlParams.set('offer', sidebardata.offer);
+    if (sidebardata.yomMin) urlParams.set('yomMin', sidebardata.yomMin);
+    if (sidebardata.yomMax) urlParams.set('yomMax', sidebardata.yomMax);
+    if (sidebardata.engine) urlParams.set('engine', sidebardata.engine);
+    urlParams.set('sort', sidebardata.sort);
+    urlParams.set('order', sidebardata.order);
+    navigate(`/search?${urlParams.toString()}`);
   };
 
   return (
     <div className='flex flex-col md:flex-row'>
-      {/* ── Sidebar ── */}
       <div className='p-7 border-b-2 md:border-r-2 md:min-h-screen'>
         <form onSubmit={handleSubmit} className='flex flex-col gap-8'>
 
-          {/* Search term */}
+          {/* Search Term */}
           <div className='flex items-center gap-2'>
             <label className='whitespace-nowrap font-semibold'>Search Term:</label>
             <input
@@ -154,102 +132,107 @@ export default function Search() {
               id='searchTerm'
               placeholder='Search...'
               className='border rounded-lg p-3 w-full'
-              value={sidebarData.searchTerm}
+              value={sidebardata.searchTerm}
               onChange={handleChange}
             />
           </div>
 
-          {/* Type */}
+          {/* Listing Type */}
           <div className='flex gap-2 flex-wrap items-center'>
             <label className='font-semibold'>Type:</label>
             <div className='flex gap-2'>
-              <input
-                type='checkbox'
-                id='all'
-                className='w-5'
+              <input type='checkbox' id='all' className='w-5'
                 onChange={handleChange}
-                checked={sidebarData.type === 'all'}
+                checked={sidebardata.type === 'all'}
               />
-              <span>Rent &amp; Sale</span>
+              <span>Rent & Sale</span>
             </div>
             <div className='flex gap-2'>
-              <input
-                type='checkbox'
-                id='rent'
-                className='w-5'
+              <input type='checkbox' id='rent' className='w-5'
                 onChange={handleChange}
-                checked={sidebarData.type === 'rent'}
+                checked={sidebardata.type === 'rent'}
               />
               <span>Rent</span>
             </div>
             <div className='flex gap-2'>
-              <input
-                type='checkbox'
-                id='sale'
-                className='w-5'
+              <input type='checkbox' id='sale' className='w-5'
                 onChange={handleChange}
-                checked={sidebarData.type === 'sale'}
+                checked={sidebardata.type === 'sale'}
               />
               <span>Sale</span>
             </div>
             <div className='flex gap-2'>
-              <input
-                type='checkbox'
-                id='offer'
-                className='w-5'
+              <input type='checkbox' id='offer' className='w-5'
                 onChange={handleChange}
-                checked={sidebarData.offer}
+                checked={sidebardata.offer}
               />
               <span>Offer</span>
             </div>
           </div>
 
           {/* Fuel Type */}
-          <div className='flex items-center gap-2'>
+          <div className='flex gap-2 flex-wrap items-center'>
             <label className='font-semibold'>Fuel Type:</label>
-            <select
-              id='fuelType'
-              className='border rounded-lg p-3'
-              onChange={handleChange}
-              value={sidebarData.fuelType}
-            >
-              <option value='all'>All</option>
-              <option value='petrol'>Petrol</option>
-              <option value='diesel'>Diesel</option>
-            </select>
+            <div className='flex gap-2'>
+              <input type='checkbox' id='fuelAll' className='w-5'
+                onChange={handleChange}
+                checked={sidebardata.fuelType === 'all'}
+              />
+              <span>All</span>
+            </div>
+            <div className='flex gap-2'>
+              <input type='checkbox' id='petrol' className='w-5'
+                onChange={handleChange}
+                checked={sidebardata.fuelType === 'petrol'}
+              />
+              <span>Petrol</span>
+            </div>
+            <div className='flex gap-2'>
+              <input type='checkbox' id='diesel' className='w-5'
+                onChange={handleChange}
+                checked={sidebardata.fuelType === 'diesel'}
+              />
+              <span>Diesel</span>
+            </div>
           </div>
 
-          {/* Engine */}
+          {/* Year of Manufacture Range */}
+          <div className='flex flex-col gap-2'>
+            <label className='font-semibold'>Year of Manufacture:</label>
+            <div className='flex items-center gap-3'>
+              <input
+                type='number'
+                id='yomMin'
+                placeholder='From (e.g. 2010)'
+                className='border rounded-lg p-3 w-full'
+                value={sidebardata.yomMin}
+                onChange={handleChange}
+                min='1900'
+                max={new Date().getFullYear()}
+              />
+              <span className='font-semibold text-slate-500'>—</span>
+              <input
+                type='number'
+                id='yomMax'
+                placeholder={`To (e.g. ${new Date().getFullYear()})`}
+                className='border rounded-lg p-3 w-full'
+                value={sidebardata.yomMax}
+                onChange={handleChange}
+                min='1900'
+                max={new Date().getFullYear()}
+              />
+            </div>
+          </div>
+
+          {/* Engine Search */}
           <div className='flex items-center gap-2'>
             <label className='whitespace-nowrap font-semibold'>Engine:</label>
             <input
               type='text'
               id='engine'
-              placeholder='e.g. V6, 2.0T...'
+              placeholder='e.g. V6, 2.0L...'
               className='border rounded-lg p-3 w-full'
-              value={sidebarData.engine}
-              onChange={handleChange}
-            />
-          </div>
-
-          {/* YOM Range */}
-          <div className='flex items-center gap-2 flex-wrap'>
-            <label className='whitespace-nowrap font-semibold'>Year (YOM):</label>
-            <input
-              type='number'
-              id='yomMin'
-              placeholder='Min'
-              className='border rounded-lg p-3 w-24'
-              value={sidebarData.yomMin}
-              onChange={handleChange}
-            />
-            <span className='text-slate-500'>–</span>
-            <input
-              type='number'
-              id='yomMax'
-              placeholder='Max'
-              className='border rounded-lg p-3 w-24'
-              value={sidebarData.yomMax}
+              value={sidebardata.engine}
               onChange={handleChange}
             />
           </div>
@@ -258,15 +241,17 @@ export default function Search() {
           <div className='flex items-center gap-2'>
             <label className='font-semibold'>Sort:</label>
             <select
+              onChange={handleChange}
+              value={`${sidebardata.sort}_${sidebardata.order}`}
               id='sort_order'
               className='border rounded-lg p-3'
-              onChange={handleChange}
-              defaultValue={'createdAt_desc'}
             >
               <option value='regularPrice_desc'>Price high to low</option>
               <option value='regularPrice_asc'>Price low to high</option>
               <option value='createdAt_desc'>Latest</option>
               <option value='createdAt_asc'>Oldest</option>
+              <option value='yom_desc'>Newest model</option>
+              <option value='yom_asc'>Oldest model</option>
             </select>
           </div>
 
@@ -276,32 +261,12 @@ export default function Search() {
         </form>
       </div>
 
-      {/* ── Results ── */}
+      {/* Results panel */}
       <div className='flex-1'>
         <h1 className='text-3xl font-semibold border-b p-3 text-slate-700 mt-5'>
           Listing results:
         </h1>
-        <div className='p-7 flex flex-wrap gap-4'>
-          {!loading && listings.length === 0 && (
-            <p className='text-xl text-slate-700'>No listings found!</p>
-          )}
-          {loading && (
-            <p className='text-xl text-slate-700 text-center w-full'>Loading...</p>
-          )}
-          {!loading &&
-            listings &&
-            listings.map((listing) => (
-              <ListingItem key={listing._id} listing={listing} />
-            ))}
-          {showMore && (
-            <button
-              onClick={onShowMoreClick}
-              className='text-green-700 hover:underline p-7 text-center w-full'
-            >
-              Show more
-            </button>
-          )}
-        </div>
+       
       </div>
     </div>
   );
