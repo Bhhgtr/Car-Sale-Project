@@ -86,7 +86,7 @@ export default function Listing() {
             <p className='text-2xl font-semibold'>
               {listing.name} - ${' '}
               {listing.offer
-                ? listing.discountPrice.toLocaleString('en-US')
+                ? +listing.regularPrice - +listing.discountPrice
                 : listing.regularPrice.toLocaleString('en-US')}
               {listing.type === 'rent' && ' / month'}
             </p>
@@ -104,7 +104,7 @@ export default function Listing() {
               </p>
               {listing.offer && (
                 <p className='bg-green-900 w-full max-w-[200px] text-white text-center p-1 rounded-md'>
-                  ${+listing.regularPrice - +listing.discountPrice} OFF!
+                  ${listing.discountPrice.toLocaleString('en-US')} Discount!
                 </p>
               )}
             </div>
@@ -132,7 +132,7 @@ export default function Listing() {
             </ul>
             {currentUser && listing.userRef !== currentUser._id && !contact && (
               <button onClick={()=>setContact(true)} className='bg-slate-700 text-white rounded-lg uppercase hover:opacity-95 p-3'>
-                Contact landlord
+                Contact Owner
               </button>
             )}
             {contact && <Contact listing={listing}/>}
