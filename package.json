@@ -15,9 +15,9 @@
     "test:api:watch": "vitest",
     "test:client": "cd client && npm run test:run",
     "prepare": "husky",
-    "test:unit": "vitest run api/tests/unit",
-    "test:integration": "vitest run api/tests/integration",
-    "test:api": "vitest run api/tests"
+    "test:unit": "vitest run api/test/unit",
+    "test:integration": "vitest run api/test/integration",
+    "test:api": "vitest run api/test"
   },
   "keywords": [],
   "author": "",
