@@ -2,9 +2,9 @@ import js from '@eslint/js'
 import globals from 'globals'
 
 export default [
-  { ignores: ['node_modules'] },
+  { ignores: ['node_modules', 'client', 'dist'] }, 
   {
-    files: ['**/*.js'],
+    files: ['api/**/*.js'],
     languageOptions: {
       ecmaVersion: 2020,
       globals: globals.node,

@@ -8,11 +8,13 @@
     "dev": "nodemon api/index.js",
     "start": "node api/index.js",
     "build": "npm install && npm install --prefix client && npm run build --prefix client",
-    "lint:fix": "eslint . --fix",
-    "lint": "npm run lint --workspace=client && npm run eslint .",
+    "lint:fix:api": "eslint api/ --fix",
+    "lint": "npm run lint:api && npm run lint:client",
     "lint:client": "cd client && npx eslint .",
-    "lint:api": "cd api && npx eslint .",
-    "test:watch": "vitest"
+    "lint:api": "eslint api/",
+    "test:api:watch": "vitest",
+    "test:client": "cd client && npm run test:run",
+    "prepare": "husky"
   },
   "keywords": [],
   "author": "",
@@ -33,7 +35,13 @@
     "@eslint/js": "^10.0.1",
     "eslint": "^10.2.1",
     "globals": "^17.5.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
     "supertest": "^7.2.2",
     "vitest": "^4.1.4"
+  },
+  "lint-staged": {
+    "client/src/**/*.{js,jsx}": ["eslint --fix"],
+    "api/**/*.js": ["eslint --fix"]
   }
 }
