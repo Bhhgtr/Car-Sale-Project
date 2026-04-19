@@ -13,6 +13,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await User.deleteMany({});
+  await User.syncIndexes();   
 });
 
 const validUser = {
