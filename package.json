@@ -14,7 +14,10 @@
     "lint:api": "eslint api/",
     "test:api:watch": "vitest",
     "test:client": "cd client && npm run test:run",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test:unit": "vitest run api/tests/unit",
+    "test:integration": "vitest run api/tests/integration",
+    "test:api": "vitest run api/tests"
   },
   "keywords": [],
   "author": "",
