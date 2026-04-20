@@ -1,14 +1,20 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import mongoose from 'mongoose';
 import User from '../../../models/user.models.js';
+import { MongoMemoryServer } from 'mongodb-memory-server';
+
+let mongod;
 
 beforeAll(async () => {
-  await mongoose.connect('mongodb://127.0.0.1:27017/test_user_db');
+  mongod = await MongoMemoryServer.create();
+  const uri = mongod.getUri();           // e.g. mongodb://127.0.0.1:PORT/
+  await mongoose.connect(uri);
 });
 
 afterAll(async () => {
   await mongoose.connection.dropDatabase();
   await mongoose.connection.close();
+  await mongod.stop();
 });
 
 beforeEach(async () => {
