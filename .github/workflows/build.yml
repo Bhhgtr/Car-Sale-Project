@@ -20,9 +20,8 @@ jobs:
         run: npm ci
         working-directory: api
 
-      #- name: Run API tests
-      #  run: npm test --if-present
-      #  working-directory: api
+      - name: Run  tests
+        run: npm run test
 
   build-client:
     name: Build React client
