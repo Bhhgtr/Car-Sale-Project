@@ -17,7 +17,8 @@
     "prepare": "[ \"$NODE_ENV\" != \"production\" ] && husky || true",
     "test:unit": "vitest run api/test/unit",
     "test:integration": "vitest run api/test/integration",
-    "test:api": "vitest run api/test"
+    "test:api": "vitest run api/test",
+    "test:unit:client": "cd client/src/test/redux && npm run test:run"
   },
   "keywords": [],
   "author": "",

@@ -1,5 +1,6 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import {FaSearch} from 'react-icons/fa';
-import { Link, useNavigate  } from 'react-router-dom';
+import { Link, useNavigate,  useLocation   } from 'react-router-dom';
 import {useSelector} from 'react-redux';
 import { useEffect, useState } from 'react';
 import profile from '../assets/profile.jpg';
@@ -16,6 +17,7 @@ export default function Header() {
     const searchQuery = urlParams.toString();
     navigate(`/search?${searchQuery}`);
   };
+  const location = useLocation();
 
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
@@ -53,7 +55,8 @@ export default function Header() {
     
     <Link to='/profile'>
     {currentUser ? (
-      <img className='rounded-full h-7 w-7 object-cover' src={currentUser.avatar} alt='profile' />
+      <img className='rounded-full h-7 w-7 object-cover' src={currentUser.avatar || profile}
+        onError={(e) => { e.target.src = profile; }} alt='profile' />
     ) : (
       <li className=' text-slate-700 hover:underline'>Sign In</li>
     )}
