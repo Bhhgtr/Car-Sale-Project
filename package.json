@@ -14,7 +14,7 @@
     "lint:api": "eslint api/",
     "test:api:watch": "vitest",
     "test:client": "cd client && npm run test:run",
-    "prepare": "husky",
+    "prepare": "[ \"$NODE_ENV\" != \"production\" ] && husky || true",
     "test:unit": "vitest run api/test/unit",
     "test:integration": "vitest run api/test/integration",
     "test:api": "vitest run api/test"
