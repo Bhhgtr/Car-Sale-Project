@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import jwt from 'jsonwebtoken';
-import { verifyToken } from '../../../utils/verifyuser.js';
+import { verifyToken } from '../../../utils/verifyUser.js';
 import { errorHandler } from '../../../utils/error.js';
 
 vi.mock('jsonwebtoken');
