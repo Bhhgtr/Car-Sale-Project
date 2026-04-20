@@ -4,10 +4,20 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "vitest run",
     "dev": "nodemon api/index.js",
     "start": "node api/index.js",
-    "build": "npm install && npm install --prefix client && npm run build --prefix client"
+    "build": "npm install && npm install --prefix client && npm run build --prefix client",
+    "lint:fix:api": "eslint api/ --fix",
+    "lint": "npm run lint:api && npm run lint:client",
+    "lint:client": "cd client && npx eslint .",
+    "lint:api": "eslint api/",
+    "test:api:watch": "vitest",
+    "test:client": "cd client && npm run test:run",
+    "prepare": "husky",
+    "test:unit": "vitest run api/test/unit",
+    "test:integration": "vitest run api/test/integration",
+    "test:api": "vitest run api/test"
   },
   "keywords": [],
   "author": "",
@@ -23,5 +33,23 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.3.0",
     "nodemon": "^3.1.14"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.2.1",
+    "globals": "^17.5.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "mongodb-memory-server": "^11.0.1",
+    "supertest": "^7.2.2",
+    "vitest": "^4.1.4"
+  },
+  "lint-staged": {
+    "client/src/**/*.{js,jsx}": [
+      "eslint --fix"
+    ],
+    "api/**/*.js": [
+      "eslint --fix"
+    ]
   }
 }
