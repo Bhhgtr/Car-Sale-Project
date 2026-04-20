@@ -20,7 +20,7 @@ jobs:
         run: npm ci
         working-directory: api
 
-      - name: Run  tests
+      - name: Run tests
         run: npm run test
 
   build-client:
@@ -36,6 +36,10 @@ jobs:
 
       - name: Install client dependencies
         run: npm ci
+        working-directory: client
+
+      - name: Run client tests
+        run: npm run test:run
         working-directory: client
 
       - name: Build React app
