@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import {useSelector} from 'react-redux'
 import {useRef, useState, useEffect} from 'react';
 import profile from '../assets/profile.jpg';
@@ -17,13 +18,7 @@ export default function Profile() {
   const [showListingsError, setShowListingsError] = useState(false);
   const [userListings, setUserListings] = useState([]);
 
-  useEffect(() => {
-    if(file) {
-      handleFileUpload(file);
-    }
-  }, [file]);
-
-const handleFileUpload = async (file) => {
+  const handleFileUpload = async (file) => {
   try {
     setFileUploadError(false);
     setFilePerc(0);
@@ -59,6 +54,13 @@ const handleFileUpload = async (file) => {
     setFileUploadError(true);
   }
 };
+
+  useEffect(() => {
+    if(file) {
+      handleFileUpload(file);
+    }
+  }, [file]);
+
 
    const handleChange = (e) => {
     setFormData({ ...formData, [e.target.id]: e.target.value });
@@ -162,7 +164,8 @@ const handleFileUpload = async (file) => {
       <h1 className='text-3xl font-semibold text-center my-7'>Profile</h1>
       <form onSubmit={handleSubmit} className='flex flex-col gap-4'>
         <input onChange={(e) => setFile(e.target.files[0])} type='file' ref={fileRef} hidden accept='image/*'/>
-        <img onClick={() => fileRef.current.click()} src={ currentUser.avatar } alt="profile" className='rounded-full h-24 w-24 object-cover cursor-pointer self-center mt-2' />
+        <img onClick={() => fileRef.current.click()} src={formData.avatar || currentUser.avatar || profile}
+  onError={(e) => { e.target.src = profile; }} alt="profile" className='rounded-full h-24 w-24 object-cover cursor-pointer self-center mt-2' />
         <p className='text-sm self-center'>
           {fileUploadError ? (
             <span className='text-red-700'>
