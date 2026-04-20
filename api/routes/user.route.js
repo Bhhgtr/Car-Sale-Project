@@ -1,11 +1,11 @@
 import express  from "express";
-import {deleteUser, test, updateUser, getUserListings, getUser} from '../controllers/user.controller.js';
+import {deleteUser, updateUser, getUserListings, getUser} from '../controllers/user.controller.js';
 import { verifyToken } from "../utils/verifyUser.js";
 import { getPresignedUrl } from '../controllers/s3.controller.js';
 
 const router = express.Router();
 
-router.get('/test', test);
+
 router.get('/s3-url', verifyToken, getPresignedUrl);
 router.post('/update/:id', verifyToken, updateUser);
 router.delete('/delete/:id', verifyToken, deleteUser);
