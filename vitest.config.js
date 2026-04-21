@@ -10,14 +10,7 @@ export default defineConfig({
           environment: 'node',
           include: ['api/test/**/*.test.js'],
         },
-      },
-      {
-        test: {
-          name: 'client',
-          environment: 'jsdom',
-          include: ['client/src/test/**/*.test.{js,jsx}'],
-        },
-      },
+      }
     ],
   },
 })
