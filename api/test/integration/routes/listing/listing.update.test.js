@@ -1,131 +1,107 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import mongoose from 'mongoose';
 import request from 'supertest';
+import jwt from 'jsonwebtoken';
 import app from '../../../../app.js';
+import Listing from '../../../../models/listing.model.js';
+import User from '../../../../models/user.models.js';
+import bcryptjs from 'bcryptjs';
 
-vi.mock('../../../../controllers/listing.controller.js', () => ({
-  createListing: vi.fn(),
-  deleteListing: vi.fn(),
-  updateListing: vi.fn((req, res) => res.status(200).json({ _id: 'listing123', name: 'Updated Camry' })),
-  getListing: vi.fn(),
-  getListings: vi.fn(),
-}));
+let token;
+let userId;
+let listingId;
 
-vi.mock('../../../../utils/verifyUser.js', () => ({
-  verifyToken: vi.fn((req, res, next) => {
-    req.user = { id: 'user123' };
-    next();
-  }),
-}));
-
-import { updateListing } from '../../../../controllers/listing.controller.js';
-import { verifyToken } from '../../../../utils/verifyUser.js';
-
-const updatedFields = {
-  name: 'Updated Camry',
-  regularPrice: 27000,
+const validListing = {
+  name: 'Toyota Camry',
+  description: 'A reliable sedan',
+  address: '123 Main St',
+  regularPrice: 25000,
+  discountPrice: 22000,
+  engine: '2.5L V6',
+  yom: 2020,
+  fuelType: 'Petrol',
+  type: 'sedan',
+  offer: true,
+  imageUrls: ['http://img.url/car1.jpg'],
 };
 
+beforeAll(async () => {
+  await mongoose.connect('mongodb://127.0.0.1:27017/test_listing_db');
+
+  const hashedPassword = bcryptjs.hashSync('password123', 10);
+  const user = await new User({
+    username: 'testuser',
+    email: 'test@test.com',
+    password: hashedPassword,
+  }).save();
+
+  userId = user._id.toString();
+  token = jwt.sign({ id: userId }, process.env.JWT_SECRET);
+});
+
+afterAll(async () => {
+  await mongoose.connection.dropDatabase();
+  await mongoose.connection.close();
+});
+
+beforeEach(async () => {
+  await Listing.deleteMany({});
+
+  const listing = await new Listing({ ...validListing, userRef: userId }).save();
+  listingId = listing._id.toString();
+});
+
 describe('POST /api/listing/update/:id', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-
-    verifyToken.mockImplementation((req, res, next) => {
-      req.user = { id: 'user123' };
-      next();
-    });
-
-    updateListing.mockImplementation((req, res) =>
-      res.status(200).json({ _id: 'listing123', name: 'Updated Camry' })
-    );
-  });
-
-  it('should return 200 on successful update', async () => {
+  it('should update listing and return 200', async () => {
     const res = await request(app)
-      .post('/api/listing/update/listing123')
-      .set('Cookie', 'access_token=mockToken')
-      .send(updatedFields);
+      .post(`/api/listing/update/${listingId}`)
+      .set('Cookie', `access_token=${token}`)
+      .send({ ...validListing, userRef: userId, name: 'Updated Camry' });
 
     expect(res.status).toBe(200);
     expect(res.body).toHaveProperty('name', 'Updated Camry');
   });
 
-  it('should call verifyToken before updateListing', async () => {
+  it('should actually update the listing in the database', async () => {
     await request(app)
-      .post('/api/listing/update/listing123')
-      .set('Cookie', 'access_token=mockToken')
-      .send(updatedFields);
+      .post(`/api/listing/update/${listingId}`)
+      .set('Cookie', `access_token=${token}`)
+      .send({ ...validListing, userRef: userId, regularPrice: 30000 });
 
-    expect(verifyToken).toHaveBeenCalledTimes(1);
-    expect(updateListing).toHaveBeenCalledTimes(1);
-  });
-
-  it('should pass the listing id as a route param', async () => {
-    updateListing.mockImplementation((req, res) => {
-      expect(req.params.id).toBe('listing123');
-      return res.status(200).json({ _id: 'listing123', name: 'Updated Camry' });
-    });
-
-    await request(app)
-      .post('/api/listing/update/listing123')
-      .set('Cookie', 'access_token=mockToken')
-      .send(updatedFields);
+    const listing = await Listing.findById(listingId);
+    expect(listing.regularPrice).toBe(30000);
   });
 
   it('should return 401 when no token is provided', async () => {
-    verifyToken.mockImplementation((req, res, next) =>
-      next({ statusCode: 401, message: 'Unauthorized', status: 401 })
-    );
-
     const res = await request(app)
-      .post('/api/listing/update/listing123')
-      .send(updatedFields);
+      .post(`/api/listing/update/${listingId}`)
+      .send({ ...validListing, name: 'Updated Camry' });
 
     expect(res.status).toBe(401);
-    expect(updateListing).not.toHaveBeenCalled();
   });
 
   it('should return 403 when token is invalid', async () => {
-    verifyToken.mockImplementation((req, res, next) =>
-      next({ statusCode: 403, message: 'Forbidden', status: 403 })
-    );
-
     const res = await request(app)
-      .post('/api/listing/update/listing123')
-      .set('Cookie', 'access_token=invalidToken')
-      .send(updatedFields);
+      .post(`/api/listing/update/${listingId}`)
+      .set('Cookie', 'access_token=invalidtoken')
+      .send({ ...validListing, name: 'Updated Camry' });
 
     expect(res.status).toBe(403);
-    expect(updateListing).not.toHaveBeenCalled();
   });
 
-  it('should return 404 when listing is not found', async () => {
-    updateListing.mockImplementation((req, res, next) =>
-      next({ statusCode: 404, message: 'Listing not found!', status: 404 })
-    );
+  it('should return 404 when listing does not exist', async () => {
+    const fakeId = new mongoose.Types.ObjectId().toString();
 
     const res = await request(app)
-      .post('/api/listing/update/nonexistentid')
-      .set('Cookie', 'access_token=mockToken')
-      .send(updatedFields);
+      .post(`/api/listing/update/${fakeId}`)
+      .set('Cookie', `access_token=${token}`)
+      .send({ ...validListing, userRef: userId });
 
     expect(res.status).toBe(404);
   });
 
-  it('should return 500 if controller throws', async () => {
-    updateListing.mockImplementation((req, res, next) =>
-      next({ statusCode: 500, message: 'Server error', status: 500 })
-    );
-
-    const res = await request(app)
-      .post('/api/listing/update/listing123')
-      .set('Cookie', 'access_token=mockToken')
-      .send(updatedFields);
-
-    expect(res.status).toBe(500);
-  });
-
   it('should not be reachable with DELETE method', async () => {
-    const res = await request(app).delete('/api/listing/update/listing123');
+    const res = await request(app).delete(`/api/listing/update/${listingId}`);
     expect(res.status).toBe(404);
   });
 });
