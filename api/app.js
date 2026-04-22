@@ -6,6 +6,8 @@ import path from 'path';
 import userRouter from './routes/user.route.js';
 import authRouter from './routes/auth.route.js';
 import listingRouter from './routes/listing.route.js';
+import swaggerUi from 'swagger-ui-express';
+import { swaggerSpec } from './swagger.js';
 
 dotenv.config();
 
@@ -26,6 +28,7 @@ export const connectDB = async () => {
 app.use("/api/user", userRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/listing", listingRouter);
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Error Handler
 app.use((err, req, res, next) => {
