@@ -1,98 +1,78 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import request from "supertest";
-import app from "../../../../app.js";
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import mongoose from 'mongoose';
+import request from 'supertest';
+import app from '../../../../app.js';
+import User from '../../../../models/user.models.js';
 
-vi.mock("../../../../controllers/auth.controller.js", () => ({
-  signup: vi.fn((req, res) =>
-    res.status(201).json("User created successfully!"),
-  ),
-  signin: vi.fn(),
-  google: vi.fn(),
-  signOut: vi.fn(),
-}));
+beforeAll(async () => {
+  await mongoose.connect('mongodb://127.0.0.1:27017/test_signup_db');
+});
 
-import { signup } from "../../../../controllers/auth.controller.js";
+afterAll(async () => {
+  await mongoose.connection.dropDatabase();
+  await mongoose.connection.close();
+});
 
-describe("POST /api/auth/signup", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    signup.mockImplementation((req, res) =>
-      res.status(201).json("User created successfully!"),
-    );
-  });
+beforeEach(async () => {
+  await User.deleteMany({});
+});
 
-  it("should return 201 on successful signup", async () => {
+describe('POST /api/auth/signup', () => {
+  it('should create a user and return 201', async () => {
     const res = await request(app)
-      .post("/api/auth/signup")
-      .send({
-        username: "testuser",
-        email: "test@test.com",
-        password: "password123",
-      });
+      .post('/api/auth/signup')
+      .send({ username: 'testuser', email: 'test@test.com', password: 'password123' });
 
     expect(res.status).toBe(201);
-    expect(res.body).toBe("User created successfully!");
+    expect(res.body).toBe('User created successfully!');
   });
 
-  it("should call signup controller once", async () => {
+  it('should actually save user to the database', async () => {
     await request(app)
-      .post("/api/auth/signup")
-      .send({
-        username: "testuser",
-        email: "test@test.com",
-        password: "password123",
-      });
+      .post('/api/auth/signup')
+      .send({ username: 'testuser', email: 'test@test.com', password: 'password123' });
 
-    expect(signup).toHaveBeenCalledTimes(1);
+    const user = await User.findOne({ email: 'test@test.com' });
+    expect(user).not.toBeNull();
+    expect(user.username).toBe('testuser');
   });
 
-  it("should accept JSON body", async () => {
-    const res = await request(app)
-      .post("/api/auth/signup")
-      .set("Content-Type", "application/json")
-      .send({
-        username: "testuser",
-        email: "test@test.com",
-        password: "password123",
-      });
+  it('should store a hashed password not the plain text one', async () => {
+    await request(app)
+      .post('/api/auth/signup')
+      .send({ username: 'testuser', email: 'test@test.com', password: 'password123' });
 
-    expect(res.status).toBe(201);
+    const user = await User.findOne({ email: 'test@test.com' });
+    expect(user.password).not.toBe('password123');
+    expect(user.password).toMatch(/^\$2[ab]\$\d+\$/); // bcrypt hash pattern
   });
 
-  it("should return 500 when controller throws an error", async () => {
-    signup.mockImplementation((req, res, next) =>
-      next({ statusCode: 500, message: "DB error", status: 500 }),
-    );
+  it('should return 500 when duplicate email is used', async () => {
+    await request(app)
+      .post('/api/auth/signup')
+      .send({ username: 'testuser', email: 'test@test.com', password: 'password123' });
 
     const res = await request(app)
-      .post("/api/auth/signup")
-      .send({
-        username: "testuser",
-        email: "test@test.com",
-        password: "password123",
-      });
+      .post('/api/auth/signup')
+      .send({ username: 'testuser2', email: 'test@test.com', password: 'password123' });
 
     expect(res.status).toBe(500);
   });
 
-  it("should return 409 when user already exists", async () => {
-    signup.mockImplementation((req, res, next) =>
-      next({ statusCode: 409, message: "User already exists", status: 409 }),
-    );
+  it('should return 500 when duplicate username is used', async () => {
+    await request(app)
+      .post('/api/auth/signup')
+      .send({ username: 'testuser', email: 'test@test.com', password: 'password123' });
 
     const res = await request(app)
-      .post("/api/auth/signup")
-      .send({
-        username: "testuser",
-        email: "test@test.com",
-        password: "password123",
-      });
+      .post('/api/auth/signup')
+      .send({ username: 'testuser', email: 'other@test.com', password: 'password123' });
 
-    expect(res.status).toBe(409);
+    expect(res.status).toBe(500);
   });
 
-  it("should not be reachable with GET method", async () => {
-    const res = await request(app).get("/api/auth/signup");
+  it('should not be reachable with GET method', async () => {
+    const res = await request(app).get('/api/auth/signup');
     expect(res.status).toBe(404);
   });
 });
