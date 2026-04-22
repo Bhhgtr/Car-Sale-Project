@@ -1,25 +1,38 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import mongoose from 'mongoose';
 import request from 'supertest';
+import jwt from 'jsonwebtoken';
 import app from '../../../../app.js';
+import Listing from '../../../../models/listing.model.js';
+import User from '../../../../models/user.models.js';
+import bcryptjs from 'bcryptjs';
 
+let token;
+let userId;
 
-vi.mock('../../../../controllers/listing.controller.js', () => ({
-  createListing: vi.fn((req, res) => res.status(201).json({ _id: 'listing123', name: 'Toyota Camry' })),
-  deleteListing: vi.fn(),
-  updateListing: vi.fn(),
-  getListing: vi.fn(),
-  getListings: vi.fn(),
-}));
+beforeAll(async () => {
+  await mongoose.connect('mongodb://127.0.0.1:27017/test_clisting_db');
 
-vi.mock('../../../../utils/verifyUser.js', () => ({
-  verifyToken: vi.fn((req, res, next) => {
-    req.user = { id: 'user123' };
-    next();
-  }),
-}));
+  // seed a real user and generate a real JWT
+  const hashedPassword = bcryptjs.hashSync('password123', 10);
+  const user = await new User({
+    username: 'testuser',
+    email: 'test@test.com',
+    password: hashedPassword,
+  }).save();
 
-import { createListing } from '../../../../controllers/listing.controller.js';
-import { verifyToken } from '../../../../utils/verifyUser.js';
+  userId = user._id.toString();
+  token = jwt.sign({ id: userId }, process.env.JWT_SECRET);
+});
+
+afterAll(async () => {
+  await mongoose.connection.dropDatabase();
+  await mongoose.connection.close();
+});
+
+beforeEach(async () => {
+  await Listing.deleteMany({});
+});
 
 const validListing = {
   name: 'Toyota Camry',
@@ -33,79 +46,53 @@ const validListing = {
   type: 'sedan',
   offer: true,
   imageUrls: ['http://img.url/car1.jpg'],
-  userRef: 'user123',
 };
 
 describe('POST /api/listing/create', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-
-    verifyToken.mockImplementation((req, res, next) => {
-      req.user = { id: 'user123' };
-      next();
-    });
-
-    createListing.mockImplementation((req, res) =>
-      res.status(201).json({ _id: 'listing123', name: 'Toyota Camry' })
-    );
-  });
-
-  it('should return 201 on successful listing creation', async () => {
+  it('should create a listing and return 201', async () => {
     const res = await request(app)
       .post('/api/listing/create')
-      .set('Cookie', 'access_token=mockToken')
-      .send(validListing);
+      .set('Cookie', `access_token=${token}`)
+      .send({ ...validListing, userRef: userId });
 
     expect(res.status).toBe(201);
-    expect(res.body).toHaveProperty('_id', 'listing123');
+    expect(res.body).toHaveProperty('_id');
+    expect(res.body).toHaveProperty('name', 'Toyota Camry');
   });
 
-  it('should call verifyToken middleware before createListing', async () => {
+  it('should actually save the listing to the database', async () => {
     await request(app)
       .post('/api/listing/create')
-      .set('Cookie', 'access_token=mockToken')
-      .send(validListing);
+      .set('Cookie', `access_token=${token}`)
+      .send({ ...validListing, userRef: userId });
 
-    expect(verifyToken).toHaveBeenCalledTimes(1);
-    expect(createListing).toHaveBeenCalledTimes(1);
+    const listing = await Listing.findOne({ name: 'Toyota Camry' });
+    expect(listing).not.toBeNull();
+    expect(listing.fuelType).toBe('Petrol');
   });
 
   it('should return 401 when no token is provided', async () => {
-    verifyToken.mockImplementation((req, res, next) =>
-      next({ statusCode: 401, message: 'Unauthorized', status: 401 })
-    );
-
     const res = await request(app)
       .post('/api/listing/create')
-      .send(validListing);
+      .send({ ...validListing, userRef: userId });
 
     expect(res.status).toBe(401);
-    expect(createListing).not.toHaveBeenCalled();
   });
 
   it('should return 403 when token is invalid', async () => {
-    verifyToken.mockImplementation((req, res, next) =>
-      next({ statusCode: 403, message: 'Forbidden', status: 403 })
-    );
-
     const res = await request(app)
       .post('/api/listing/create')
-      .set('Cookie', 'access_token=invalidToken')
-      .send(validListing);
+      .set('Cookie', 'access_token=invalidtoken')
+      .send({ ...validListing, userRef: userId });
 
     expect(res.status).toBe(403);
-    expect(createListing).not.toHaveBeenCalled();
   });
 
-  it('should return 500 if controller throws', async () => {
-    createListing.mockImplementation((req, res, next) =>
-      next({ statusCode: 500, message: 'Server error', status: 500 })
-    );
-
+  it('should return 500 when required fields are missing', async () => {
     const res = await request(app)
       .post('/api/listing/create')
-      .set('Cookie', 'access_token=mockToken')
-      .send(validListing);
+      .set('Cookie', `access_token=${token}`)
+      .send({ name: 'Incomplete listing' });
 
     expect(res.status).toBe(500);
   });

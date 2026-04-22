@@ -1,81 +1,107 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import mongoose from 'mongoose';
 import request from 'supertest';
 import app from '../../../../app.js';
+import Listing from '../../../../models/listing.model.js';
+import User from '../../../../models/user.models.js';
+import bcryptjs from 'bcryptjs';
 
-vi.mock('../../../../controllers/listing.controller.js', () => ({
-  createListing: vi.fn(),
-  deleteListing: vi.fn(),
-  updateListing: vi.fn(),
-  getListing: vi.fn((req, res) =>
-    res.status(200).json({ _id: 'listing123', name: 'Toyota Camry' })
-  ),
-  getListings: vi.fn(),
-}));
+let userId;
+let listingId;
 
-// No verifyToken mock needed — getListing is a public route
+const validListing = {
+  name: 'Toyota Camry',
+  description: 'A reliable sedan',
+  address: '123 Main St',
+  regularPrice: 25000,
+  discountPrice: 22000,
+  engine: '2.5L V6',
+  yom: 2020,
+  fuelType: 'petrol',
+  type: 'sale',
+  offer: true,
+  imageUrls: ['http://img.url/car1.jpg'],
+};
 
-import { getListing } from '../../../../controllers/listing.controller.js';
+beforeAll(async () => {
+  await mongoose.connect('mongodb://127.0.0.1:27017/test_getlisting_db');
+
+  const hashedPassword = bcryptjs.hashSync('password123', 10);
+  const user = await new User({
+    username: 'testuser',
+    email: 'test@test.com',
+    password: hashedPassword,
+  }).save();
+
+  userId = user._id.toString();
+});
+
+afterAll(async () => {
+  await mongoose.connection.dropDatabase();
+  await mongoose.connection.close();
+});
+
+beforeEach(async () => {
+  await Listing.deleteMany({});
+
+  const listing = await new Listing({ ...validListing, userRef: userId }).save();
+  listingId = listing._id.toString();
+});
 
 describe('GET /api/listing/get/:id', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-
-    getListing.mockImplementation((req, res) =>
-      res.status(200).json({ _id: 'listing123', name: 'Toyota Camry' })
-    );
-  });
-
-  it('should return 200 and listing data', async () => {
-    const res = await request(app).get('/api/listing/get/listing123');
+  it('should return 200 and the listing', async () => {
+    const res = await request(app).get(`/api/listing/get/${listingId}`);
 
     expect(res.status).toBe(200);
-    expect(res.body).toHaveProperty('_id', 'listing123');
+    expect(res.body).toHaveProperty('_id', listingId);
     expect(res.body).toHaveProperty('name', 'Toyota Camry');
   });
 
   it('should be publicly accessible without a token', async () => {
-    const res = await request(app).get('/api/listing/get/listing123');
-
-    // no cookie set — should still succeed
+    const res = await request(app).get(`/api/listing/get/${listingId}`);
     expect(res.status).toBe(200);
   });
 
-  it('should call getListing controller once', async () => {
-    await request(app).get('/api/listing/get/listing123');
-    expect(getListing).toHaveBeenCalledTimes(1);
-  });
-
-  it('should pass the listing id as a route param', async () => {
-    getListing.mockImplementation((req, res) => {
-      expect(req.params.id).toBe('listing123');
-      return res.status(200).json({ _id: 'listing123', name: 'Toyota Camry' });
-    });
-
-    await request(app).get('/api/listing/get/listing123');
-  });
-
-  it('should return 404 when listing is not found', async () => {
-    getListing.mockImplementation((req, res, next) =>
-      next({ statusCode: 404, message: 'Listing not found!', status: 404 })
-    );
-
-    const res = await request(app).get('/api/listing/get/nonexistentid');
+  it('should return 404 when listing does not exist', async () => {
+    const fakeId = new mongoose.Types.ObjectId().toString();
+    const res = await request(app).get(`/api/listing/get/${fakeId}`);
     expect(res.status).toBe(404);
   });
 
-  it('should return 500 if controller throws', async () => {
-    getListing.mockImplementation((req, res, next) =>
-      next({ statusCode: 500, message: 'Server error', status: 500 })
-    );
-
-    const res = await request(app).get('/api/listing/get/listing123');
-    expect(res.status).toBe(500);
-  });
-
   it('should not be reachable with POST method', async () => {
-    const res = await request(app).post('/api/listing/get/listing123');
+    const res = await request(app).post(`/api/listing/get/${listingId}`);
     expect(res.status).toBe(404);
   });
 });
 
+describe('GET /api/listing/get', () => {
+  it('should return 200 and array of listings', async () => {
+    const res = await request(app).get('/api/listing/get');
 
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body.length).toBeGreaterThan(0);
+  });
+
+  it('should be publicly accessible without a token', async () => {
+    const res = await request(app).get('/api/listing/get');
+    expect(res.status).toBe(200);
+  });
+
+  it('should return an empty array when no listings exist', async () => {
+    await Listing.deleteMany({});
+    const res = await request(app).get('/api/listing/get');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([]);
+  });
+
+  it('should filter listings by fuelType query param', async () => {
+  await new Listing({ ...validListing, userRef: userId, name: 'Honda Civic', fuelType: 'diesel' }).save();
+
+  const res = await request(app).get('/api/listing/get?fuelType=petrol');
+
+  expect(res.status).toBe(200);
+  expect(res.body.every((l) => l.fuelType === 'petrol')).toBe(true);
+});
+});

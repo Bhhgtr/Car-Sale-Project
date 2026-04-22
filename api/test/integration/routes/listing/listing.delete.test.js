@@ -1,106 +1,101 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import mongoose from 'mongoose';
 import request from 'supertest';
+import jwt from 'jsonwebtoken';
 import app from '../../../../app.js';
+import Listing from '../../../../models/listing.model.js';
+import User from '../../../../models/user.models.js';
+import bcryptjs from 'bcryptjs';
 
-vi.mock('../../../../controllers/listing.controller.js', () => ({
-  createListing: vi.fn(),
-  deleteListing: vi.fn((req, res) => res.status(200).json('Listing has been deleted!')),
-  updateListing: vi.fn(),
-  getListing: vi.fn(),
-  getListings: vi.fn(),
-}));
+let token;
+let userId;
+let listingId;
 
-vi.mock('../../../../utils/verifyUser.js', () => ({
-  verifyToken: vi.fn((req, res, next) => {
-    req.user = { id: 'user123' };
-    next();
-  }),
-}));
+const validListing = {
+  name: 'Toyota Camry',
+  description: 'A reliable sedan',
+  address: '123 Main St',
+  regularPrice: 25000,
+  discountPrice: 22000,
+  engine: '2.5L V6',
+  yom: 2020,
+  fuelType: 'Petrol',
+  type: 'sedan',
+  offer: true,
+  imageUrls: ['http://img.url/car1.jpg'],
+};
 
-import { deleteListing } from '../../../../controllers/listing.controller.js';
-import { verifyToken } from '../../../../utils/verifyUser.js';
+beforeAll(async () => {
+  await mongoose.connect('mongodb://127.0.0.1:27017/test_dlisting_db');
+
+  const hashedPassword = bcryptjs.hashSync('password123', 10);
+  const user = await new User({
+    username: 'testuser',
+    email: 'test@test.com',
+    password: hashedPassword,
+  }).save();
+
+  userId = user._id.toString();
+  token = jwt.sign({ id: userId }, process.env.JWT_SECRET);
+});
+
+afterAll(async () => {
+  await mongoose.connection.dropDatabase();
+  await mongoose.connection.close();
+});
+
+beforeEach(async () => {
+  await Listing.deleteMany({});
+
+  // seed a listing before each test
+  const listing = await new Listing({ ...validListing, userRef: userId }).save();
+  listingId = listing._id.toString();
+});
 
 describe('DELETE /api/listing/delete/:id', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-
-    verifyToken.mockImplementation((req, res, next) => {
-      req.user = { id: 'user123' };
-      next();
-    });
-
-    deleteListing.mockImplementation((req, res) =>
-      res.status(200).json('Listing has been deleted!')
-    );
-  });
-
-  it('should return 200 on successful deletion', async () => {
+  it('should delete listing and return 200', async () => {
     const res = await request(app)
-      .delete('/api/listing/delete/listing123')
-      .set('Cookie', 'access_token=mockToken');
+      .delete(`/api/listing/delete/${listingId}`)
+      .set('Cookie', `access_token=${token}`);
 
     expect(res.status).toBe(200);
     expect(res.body).toBe('Listing has been deleted!');
   });
 
-  it('should call verifyToken before deleteListing', async () => {
+  it('should actually remove the listing from the database', async () => {
     await request(app)
-      .delete('/api/listing/delete/listing123')
-      .set('Cookie', 'access_token=mockToken');
+      .delete(`/api/listing/delete/${listingId}`)
+      .set('Cookie', `access_token=${token}`);
 
-    expect(verifyToken).toHaveBeenCalledTimes(1);
-    expect(deleteListing).toHaveBeenCalledTimes(1);
-  });
-
-  it('should pass the listing id as a route param', async () => {
-    deleteListing.mockImplementation((req, res) => {
-      expect(req.params.id).toBe('listing123');
-      return res.status(200).json('Listing has been deleted!');
-    });
-
-    await request(app)
-      .delete('/api/listing/delete/listing123')
-      .set('Cookie', 'access_token=mockToken');
+    const listing = await Listing.findById(listingId);
+    expect(listing).toBeNull();
   });
 
   it('should return 401 when no token is provided', async () => {
-    verifyToken.mockImplementation((req, res, next) =>
-      next({ statusCode: 401, message: 'Unauthorized', status: 401 })
-    );
-
-    const res = await request(app).delete('/api/listing/delete/listing123');
-
+    const res = await request(app).delete(`/api/listing/delete/${listingId}`);
     expect(res.status).toBe(401);
-    expect(deleteListing).not.toHaveBeenCalled();
   });
 
   it('should return 403 when token is invalid', async () => {
-    verifyToken.mockImplementation((req, res, next) =>
-      next({ statusCode: 403, message: 'Forbidden', status: 403 })
-    );
-
     const res = await request(app)
-      .delete('/api/listing/delete/listing123')
-      .set('Cookie', 'access_token=invalidToken');
+      .delete(`/api/listing/delete/${listingId}`)
+      .set('Cookie', 'access_token=invalidtoken');
 
     expect(res.status).toBe(403);
-    expect(deleteListing).not.toHaveBeenCalled();
   });
 
-  it('should return 404 when listing is not found', async () => {
-    deleteListing.mockImplementation((req, res, next) =>
-      next({ statusCode: 404, message: 'Listing not found!', status: 404 })
-    );
+  it('should return 404 when listing does not exist', async () => {
+    const fakeId = new mongoose.Types.ObjectId().toString();
 
     const res = await request(app)
-      .delete('/api/listing/delete/nonexistentid')
-      .set('Cookie', 'access_token=mockToken');
+      .delete(`/api/listing/delete/${fakeId}`)
+      .set('Cookie', `access_token=${token}`);
 
     expect(res.status).toBe(404);
   });
 
   it('should not be reachable with GET method', async () => {
-    const res = await request(app).get('/api/listing/delete/listing123');
+    const res = await request(app).get(`/api/listing/delete/${listingId}`);
     expect(res.status).toBe(404);
   });
 });
