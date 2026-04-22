@@ -13,6 +13,15 @@ const options = {
         url: 'http://localhost:3000', // change to your API port
       },
     ],
+     components: {
+      securitySchemes: {
+        cookieAuth: {          
+          type: 'apiKey',
+          in: 'cookie',
+          name: 'access_token',
+        },
+      },
+    },
   },
   apis: ['./api/docs/*.docs.js'], // route files
 };
