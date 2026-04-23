@@ -1,8 +1,9 @@
 version: "3.9"
 services:
   app:
-    build: .
+    image: bhhhr/car-sale:latest  
     ports:
       - "3000:3000"
     env_file:
       - .env
+    restart: unless-stopped
