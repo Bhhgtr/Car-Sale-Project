@@ -2,6 +2,7 @@ import React from 'react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ListingItem from '../components/ListingItem';
+import { API_URL } from '../utils/api';
 
 export default function Search() {
   const navigate = useNavigate();
@@ -59,7 +60,7 @@ export default function Search() {
     const fetchListings = async () => {
       setLoading(true);
       const searchQuery = urlParams.toString();
-      const res = await fetch(`/api/listing/get?${searchQuery}`);
+      const res = await fetch(`${API_URL}/api/listing/get?${searchQuery}`);
       const data = await res.json();
       setListings(data);
       setLoading(false);

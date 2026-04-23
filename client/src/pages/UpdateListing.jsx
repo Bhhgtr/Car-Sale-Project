@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { useNavigate, useParams } from 'react-router-dom';
+import { API_URL } from '../utils/api';
 
 export default function UpdateListing() {
   const { currentUser } = useSelector((state) => state.user);
@@ -28,7 +29,7 @@ export default function UpdateListing() {
   useEffect(() => {
     const fetchListing = async () => {
       const listingId = params.listingId;
-      const res = await fetch(`/api/listing/get/${listingId}`);
+      const res = await fetch(`${API_URL}/api/listing/get/${listingId}`);
       const data = await res.json();
       if (data.success === false) {
         console.log(data.message);
@@ -69,10 +70,9 @@ export default function UpdateListing() {
   };
 
   const storeImage = async (file) => {
-    const res = await fetch(
-      `/api/user/s3-url?fileName=${encodeURIComponent(file.name)}&fileType=${encodeURIComponent(file.type)}`,
-      { credentials: 'include' }
-    );
+    const res = await fetch(`${API_URL}/api/user/s3-url?fileName=${encodeURIComponent(file.name)}&fileType=${encodeURIComponent(file.type)}`, {
+      credentials: 'include'
+    });
 
     if (!res.ok) throw new Error('Failed to get upload URL');
 
@@ -133,7 +133,7 @@ export default function UpdateListing() {
         return setError('Discount price must be lower than regular price');
       setLoading(true);
       setError(false);
-      const res = await fetch(`/api/listing/update/${params.listingId}`, {
+      const res = await fetch(`${API_URL}/api/listing/update/${params.listingId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
