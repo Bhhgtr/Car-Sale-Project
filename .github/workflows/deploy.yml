@@ -29,6 +29,7 @@ jobs:
         working-directory: client
         env:
           VITE_API_URL: ${{ secrets.EC2_API_URL }}  
+          VITE_FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:

@@ -14,47 +14,47 @@ export default function Profile() {
   const [filePerc, setFilePerc] = useState(0);
   const [fileUploadError, setFileUploadError] = useState(false);
   const [formData, setFormData] = useState({});
-   const [updateSuccess, setUpdateSuccess] = useState(false);
+  const [updateSuccess, setUpdateSuccess] = useState(false);
   const dispatch = useDispatch();
   const [showListingsError, setShowListingsError] = useState(false);
   const [userListings, setUserListings] = useState([]);
 
   const handleFileUpload = async (file) => {
-  try {
-    setFileUploadError(false);
-    setFilePerc(0);
+    try {
+      setFileUploadError(false);
+      setFilePerc(0);
 
-    const res = await fetch(
-      `${API_URL}/api/user/s3-url?fileName=${encodeURIComponent(file.name)}&fileType=${encodeURIComponent(file.type)}`,
-      { credentials: 'include' }
-    );
+      const res = await fetch(
+        `${API_URL}/api/user/s3-url?fileName=${encodeURIComponent(file.name)}&fileType=${encodeURIComponent(file.type)}`,
+        { credentials: 'include' }
+      );
 
-    if (!res.ok) {
-      const errData = await res.json();
-      console.error('Presigned URL error:', errData);
-      throw new Error(errData.message || 'Failed to get upload URL');
+      if (!res.ok) {
+        const errData = await res.json();
+        console.error('Presigned URL error:', errData);
+        throw new Error(errData.message || 'Failed to get upload URL');
+      }
+
+      const { url, key } = await res.json();
+
+      if (!url || !key) throw new Error('Invalid presigned URL response');
+
+      const upload = await fetch(url, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type },
+        body: file,
+      });
+
+      if (!upload.ok) throw new Error('Upload to S3 failed');
+
+      const publicUrl = `https://${import.meta.env.VITE_AWS_BUCKET_NAME}.s3.${import.meta.env.VITE_AWS_REGION}.amazonaws.com/${key}`;
+      setFormData((prev) => ({ ...prev, avatar: publicUrl }));
+      setFilePerc(100);
+    } catch (error) {
+      console.error('Upload error:', error.message);
+      setFileUploadError(true);
     }
-
-    const { url, key } = await res.json();
-
-    if (!url || !key) throw new Error('Invalid presigned URL response');
-
-    const upload = await fetch(url, {
-      method: 'PUT',
-      headers: { 'Content-Type': file.type },
-      body: file,
-    });
-
-    if (!upload.ok) throw new Error('Upload to S3 failed');
-
-    const publicUrl = `https://${import.meta.env.VITE_AWS_BUCKET_NAME}.s3.${import.meta.env.VITE_AWS_REGION}.amazonaws.com/${key}`;
-    setFormData((prev) => ({ ...prev, avatar: publicUrl }));
-    setFilePerc(100);
-  } catch (error) {
-    console.error('Upload error:', error.message);
-    setFileUploadError(true);
-  }
-};
+  };
 
   useEffect(() => {
     if(file) {
@@ -62,8 +62,7 @@ export default function Profile() {
     }
   }, [file]);
 
-
-   const handleChange = (e) => {
+  const handleChange = (e) => {
     setFormData({ ...formData, [e.target.id]: e.target.value });
   };
 
@@ -76,6 +75,7 @@ export default function Profile() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify(formData),
       });
       const data = await res.json();
@@ -83,7 +83,6 @@ export default function Profile() {
         dispatch(updateUserFailure(data.message));
         return;
       }
-
       dispatch(updateUserSuccess(data));
       setUpdateSuccess(true);
     } catch (error) {
@@ -96,6 +95,7 @@ export default function Profile() {
       dispatch(deleteUserStart()); 
       const res = await fetch(`${API_URL}/api/user/delete/${currentUser._id}`, {
         method: 'DELETE',
+        credentials: 'include',
       });
       const data = await res.json();
       if (data.success === false) {
@@ -105,15 +105,15 @@ export default function Profile() {
       dispatch(deleteUserSuccess(data));
     } catch (error) {
       dispatch(deleteUserFailure(error.message));
-
     }
-  }
+  };
 
   const handleSignOut = async () => {
-
     try {
-      dispatch(signOutUserStart())
-      const res = await fetch(`${API_URL}/api/auth/signout`);
+      dispatch(signOutUserStart());
+      const res = await fetch(`${API_URL}/api/auth/signout`, {
+        credentials: 'include',
+      });
       const data = await res.json();
       if (data.success === false) {
         dispatch(signOutUserFailure(data.message));
@@ -123,18 +123,19 @@ export default function Profile() {
     } catch (error) {
       dispatch(signOutUserFailure(error.message));
     }
-  }
+  };
 
   const handleShowListings = async () => {
     try {
       setShowListingsError(false);
-      const res = await fetch(`${API_URL}/api/user/listings/${currentUser._id}`);
+      const res = await fetch(`${API_URL}/api/user/listings/${currentUser._id}`, {
+        credentials: 'include',
+      });
       const data = await res.json();
       if (data.success === false) {
         setShowListingsError(true);
         return;
       }
-
       setUserListings(data);
     } catch (error) {
       setShowListingsError(true);
@@ -145,13 +146,13 @@ export default function Profile() {
     try {
       const res = await fetch(`${API_URL}/api/listing/delete/${listingId}`, {
         method: 'DELETE',
+        credentials: 'include',
       });
       const data = await res.json();
       if (data.success === false) {
         console.log(data.message);
         return;
       }
-
       setUserListings((prev) =>
         prev.filter((listing) => listing._id !== listingId)
       );
@@ -165,8 +166,13 @@ export default function Profile() {
       <h1 className='text-3xl font-semibold text-center my-7'>Profile</h1>
       <form onSubmit={handleSubmit} className='flex flex-col gap-4'>
         <input onChange={(e) => setFile(e.target.files[0])} type='file' ref={fileRef} hidden accept='image/*'/>
-        <img onClick={() => fileRef.current.click()} src={formData.avatar || currentUser.avatar || profile}
-  onError={(e) => { e.target.src = profile; }} alt="profile" className='rounded-full h-24 w-24 object-cover cursor-pointer self-center mt-2' />
+        <img
+          onClick={() => fileRef.current.click()}
+          src={formData.avatar || currentUser.avatar || profile}
+          onError={(e) => { e.target.src = profile; }}
+          alt="profile"
+          className='rounded-full h-24 w-24 object-cover cursor-pointer self-center mt-2'
+        />
         <p className='text-sm self-center'>
           {fileUploadError ? (
             <span className='text-red-700'>
@@ -180,10 +186,12 @@ export default function Profile() {
             ''
           )}
         </p>
-        <input type="text" placeholder='username' defaultValue={currentUser.username} onChange={handleChange} id='username' className='border p-3 rounded-lg'  />
-        <input type="email" placeholder='email' defaultValue={currentUser.email} onChange={handleChange} id='email' className='border p-3 rounded-lg'  />
-        <input type="password" placeholder='password' onChange={handleChange} id='password' className='border p-3 rounded-lg'  />
-        <button disabled={loading} className='bg-slate-700 text-white rounded-lg p-3 uppercase hover:opacity-95 disabled:opacity-80'>{loading ? 'Loading...' : 'Update'}</button>
+        <input type="text" placeholder='username' defaultValue={currentUser.username} onChange={handleChange} id='username' className='border p-3 rounded-lg' />
+        <input type="email" placeholder='email' defaultValue={currentUser.email} onChange={handleChange} id='email' className='border p-3 rounded-lg' />
+        <input type="password" placeholder='password' onChange={handleChange} id='password' className='border p-3 rounded-lg' />
+        <button disabled={loading} className='bg-slate-700 text-white rounded-lg p-3 uppercase hover:opacity-95 disabled:opacity-80'>
+          {loading ? 'Loading...' : 'Update'}
+        </button>
         <Link className='bg-green-700 text-white p-3 rounded-lg uppercase text-center hover:opacity-95' to={"/create-listing"}>
           Create Listing
         </Link>
@@ -196,16 +204,13 @@ export default function Profile() {
       <p className='text-green-700 mt-5'>
         {updateSuccess ? 'User is updated successfully!' : ''}
       </p>
-
       <button onClick={handleShowListings} className='text-green-700 w-full'>
         Show Listings
       </button>
       <p className='text-red-700 mt-5'>
         {showListingsError ? 'Error showing listings' : ''}
       </p>
-
-      {userListings &&
-        userListings.length > 0 &&
+      {userListings && userListings.length > 0 &&
         <div className="flex flex-col gap-4">
           <h1 className='text-center mt-7 text-2xl font-semibold'>Your Listings</h1>
           {userListings.map((listing) => (
@@ -221,12 +226,11 @@ export default function Profile() {
                 />
               </Link>
               <Link
-                className='text-slate-700 font-semibold  hover:underline truncate flex-1'
+                className='text-slate-700 font-semibold hover:underline truncate flex-1'
                 to={`/listing/${listing._id}`}
               >
                 <p>{listing.name}</p>
               </Link>
-
               <div className='flex flex-col item-center'>
                 <button onClick={() => handleListingDelete(listing._id)} className='text-red-700 uppercase'>Delete</button>
                 <Link to={`/update-listing/${listing._id}`}>
@@ -235,8 +239,8 @@ export default function Profile() {
               </div>
             </div>
           ))}
-        </div>}
-
+        </div>
+      }
     </div>
-  )
+  );
 }

@@ -70,9 +70,10 @@ export default function UpdateListing() {
   };
 
   const storeImage = async (file) => {
-    const res = await fetch(`${API_URL}/api/user/s3-url?fileName=${encodeURIComponent(file.name)}&fileType=${encodeURIComponent(file.type)}`, {
-      credentials: 'include'
-    });
+    const res = await fetch(
+      `${API_URL}/api/user/s3-url?fileName=${encodeURIComponent(file.name)}&fileType=${encodeURIComponent(file.type)}`,
+      { credentials: 'include' }
+    );
 
     if (!res.ok) throw new Error('Failed to get upload URL');
 
@@ -138,6 +139,7 @@ export default function UpdateListing() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({
           ...formData,
           userRef: currentUser._id,
@@ -279,8 +281,8 @@ export default function UpdateListing() {
               <div className='flex flex-col items-center'>
                 <p>Regular price</p>
                 {formData.type === 'rent' && (
-                    <span className='text-xs'>($ / month)</span>
-                  )}
+                  <span className='text-xs'>($ / month)</span>
+                )}
               </div>
             </div>
 

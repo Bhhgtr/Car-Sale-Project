@@ -28,6 +28,7 @@ export default function CreateListing() {
   const [loading, setLoading] = useState(false);
 
   console.log(formData);
+
   const handleImageSubmit = (e) => {
     if (files.length > 0 && files.length + formData.imageUrls.length < 7) {
       setUploading(true);
@@ -57,7 +58,6 @@ export default function CreateListing() {
   };
 
   const storeImage = async (file) => {
-
     const res = await fetch(
       `${API_URL}/api/user/s3-url?fileName=${encodeURIComponent(file.name)}&fileType=${encodeURIComponent(file.type)}`,
       { credentials: "include" }
@@ -77,7 +77,6 @@ export default function CreateListing() {
 
     return `https://${import.meta.env.VITE_AWS_BUCKET_NAME}.s3.${import.meta.env.VITE_AWS_REGION}.amazonaws.com/${key}`;
   };
-
 
   const handleRemoveImage = (index) => {
     setFormData({
@@ -128,6 +127,7 @@ export default function CreateListing() {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include", 
         body: JSON.stringify({
           ...formData,
           userRef: currentUser._id,
