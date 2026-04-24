@@ -2,14 +2,58 @@ name: CD — Build, push & deploy
 
 on:
   push:
-    branches: [main]
+    branches: [jamstack]
 
 env:
-  IMAGE_NAME: ${{ secrets.DOCKER_USERNAME }}/car-sale
+  IMAGE_NAME: ${{ secrets.DOCKER_USERNAME }}/car-sale-api
 
 jobs:
-  build-and-push:
-    name: Build & push Docker image
+  # ── Job 1: Deploy React to S3 + invalidate CloudFront ──────────────────
+  deploy-frontend:
+    name: Build & deploy React to S3
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install client dependencies
+        run: npm ci
+        working-directory: client
+
+      - name: Build React app
+        run: npm run build
+        working-directory: client
+        env:
+          VITE_API_URL: ${{ secrets.EC2_API_URL }}  
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Sync to S3
+        run: |
+          aws s3 sync client/dist s3://${{ secrets.S3_BUCKET_NAME }} \
+            --delete \
+            --cache-control "public,max-age=31536000,immutable"
+          # Override cache for index.html so users always get latest
+          aws s3 cp client/dist/index.html s3://${{ secrets.S3_BUCKET_NAME }}/index.html \
+            --cache-control "no-cache,no-store,must-revalidate"
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*"
+
+  # ── Job 2: Build API image and deploy to EC2 ───────────────────────────
+  deploy-backend:
+    name: Build & deploy API to EC2
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,7 +64,7 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build and push image
+      - name: Build and push API image
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -29,12 +73,7 @@ jobs:
             ${{ env.IMAGE_NAME }}:latest
             ${{ env.IMAGE_NAME }}:${{ github.sha }}
 
-  deploy:
-    name: Deploy to server
-    runs-on: ubuntu-latest
-    needs: build-and-push
-    steps:
-      - name: SSH and deploy
+      - name: SSH and deploy to EC2
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -46,4 +85,3 @@ jobs:
             sudo docker compose down
             sudo docker compose up -d
             sudo docker image prune -f
-            
