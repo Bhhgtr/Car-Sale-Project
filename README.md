@@ -39,7 +39,7 @@ This project demonstrates end-to-end ownership of a production-style web applica
 - **Automated testing** — unit/integration tests via Vitest
 - **CI/CD pipeline** — GitHub Actions workflow automates linting, testing, and build checks on every push
 - **Pre-commit hooks** — Husky enforces code quality gates before commits land
-- **Swagger** — Interactive OpenAPI documentation
+- **Swagger** — Interactive OpenAPI documentation 
 
 ---
 
