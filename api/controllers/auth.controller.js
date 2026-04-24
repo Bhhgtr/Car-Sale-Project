@@ -6,8 +6,7 @@ import jwt from 'jsonwebtoken';
 const cookieOptions = {
   httpOnly: true,
   secure: true,       
-  sameSite: 'lax',                
-  domain: '.elephantech.dev'
+  sameSite: 'none',                
 };
 
 export const signup = async (req, res, next) => {
